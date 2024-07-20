@@ -1,0 +1,11 @@
+[Unit]
+Description=Service to activate the water as a function of time
+After=multi-user.target
+
+[Service]
+Type=simple
+Restart=Always
+ExecStart=/usr/bin/python3 /home/pi/git/gello3000/irrigation/water.py -s 02:00 -e 02:30 -o 16 -c 12 -u 13 -t 0.01
+
+[Install]
+WantedBy=multi-user.target 
