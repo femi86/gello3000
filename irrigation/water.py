@@ -2,7 +2,7 @@
 
 from datetime import datetime
 import time
-import RPi.GPIO as GPIO
+import yaml
 import argparse
 import logging
 from systemd.journal import JournalHandler
@@ -22,15 +22,11 @@ def check_time(start,end,x):
     else:
         return False
 
-def parseArgs():
-    parser = argparse.ArgumentParser(description="an utility that checks the time and if it falls within a range turns on a relay for watering the plants")
-    parser.add_argument("-s","--start",help="provide the time to start the water, in hours and minutes, i.e. 02:00", default="02:00", required=True)
-    parser.add_argument("-e","--end",help="provide the time to stop the water, in hours and minutes, i.e. 03:00",default="03:00", required=True)
-    parser.add_argument("-o","--water_open",help="which GPIO pin is the relay to open the water connected to?",default=16,type=int)
-    parser.add_argument("-c","--water_close",help="which GPIO pin is the relay to turn off the water connected to?",default=12,type=int)
-    parser.add_argument("-u","--humidity",help="which GPIO pin is the humidity sensor connected to?",default=13,required=False,type=int)
-    parser.add_argument("-t","--threshold",help="what threshold do you want to set for humidity changes?",default=0.01,required=False,type=float)
-    return parser.parse_args()
+def total_flow(analog_value):
+    # this function should calculate the volume of water flown in liters
+    pass
+
+
 
 def logger_setup(logger):
     ###
@@ -43,53 +39,71 @@ def logger_setup(logger):
     #logger.addHandler(journald_handler)
     #logger.setLevel(logging.INFO)
 
+def setup_rpi(config):
+    """
+    provide the config from the yaml where the pins are setup,
+    it will parse the key,value pairs and set the pins appropriately
+
+    """
+    pin_names = {}
+    import RPi.GPIO as GPIO
+    GPIO.setmode(GPIO.BOARD)
+    for pin_name in config.keys():
+        pin_number = config[pin_name]['pinN']
+        mode = config[pin_name]['mode']
+        GPIO.setup(pin_number, mode)
+        logging.info(f'configured pin {pin_name} as {str(mode)}')
+        pin_names[pin_name] = pin_number
+    return pin_names
 
 if __name__=="__main__":
-    logger_setup(logger) 
+    logger_setup(logger)
+    with open('UserSettings.yaml', 'r') as file:
+        config = yaml.safe_load(file)
     water_status = 1
-    time_switch = 60
+    time_switch = config['time-switch']
     #logger = logging.getLogger(__name__)
-    args = parseArgs()
-    th = args.threshold
-    water_open = args.water_open
-    water_close = args.water_close
-    humidity = args.humidity
-    logging.info(f'water will be turned on in the timerange: {args.start} - {args.end}')
-    # set up the gpio pins
-    GPIO.setmode(GPIO.BOARD) 
-    GPIO.setup(water_open, GPIO.OUT)
-    GPIO.setup(water_close, GPIO.OUT)
-    GPIO.setup(humidity, GPIO.IN)
-    logging.info(f'configured pin {water_open} as output to open the water, pin {water_close} as output to close the water, GPIO mode is {GPIO.getmode()}')
+    pins = setup_rpi(config['rpi-pins'])
+
+    logging.info(f'water will be turned on in the timerange: {time_switch}')
+
     logging.info(f'turning off the water (if it was closed already no change)')
-    switch(water_close)
+    switch(pins['water_close'])
     water_status = 0
     # set up the range of time to open the water
-    start = datetime.strptime(args.start,"%H:%M").time()
-    end = datetime.strptime(args.end,"%H:%M").time()
+    start = datetime.strptime(time_switch['start'],"%H:%M").time()
+    end = datetime.strptime(time_switch['end'],"%H:%M").time()
     while True:
-        h1 = GPIO.input(humidity)
+        # read operation.json file if it exists and check days since it worked
+        before = datetime.now()
+        h1 = GPIO.input(pins['humidity'])
         if check_time(start, end, datetime.now().time()):
             if water_status == 0:
+                # dump into summary.log start time
+                # start measuring the flow into a total_water
                 logging.info(f'time is {datetime.now().time().strftime("%H:%M")}, turning on the water')
-                switch(water_open)
+                switch(pins['water_open'])
             # read the humidity of the ground and report it --> if it increases and the sensor is set in a reasonable place, it means the watering is working
-            if (GPIO.input(humidity) - h1) > th:
-                h2 = GPIO.input(humidity)
+            if (GPIO.input(pins['humidity']) - h1) > th:
+                h2 = GPIO.input(pins['humidity'])
                 report = f'humidity of soil is increasing by {h2-h1}% since 1 minute ago, watering system is effective!'
-            elif GPIO.input(humidity) < h1 and (GPIO.input(humidity) - h1) > th:
+            elif GPIO.input(pins['humidity']) < h1 and (GPIO.input(pins['humidity']) - h1) > th:
                 report = f'soil is drying up'
             else:
                 report = f'soil humidity has not changed yet'
-            logging.info(f'time is {datetime.now().time().strftime("%H:%M")}, keeping water on, pin state is {GPIO.input(water_open)}, {report}')
+            logging.info(f'time is {datetime.now().time().strftime("%H:%M")}, keeping water on, pin state is {GPIO.input(pins['water-open'])}, {report}')
             water_status = 1
         else:
             if water_status == 1:
+                # dump into summary.log end time and total flow
                 logging.info(f'time is {datetime.now().time().strftime("%H:%M")}, turning off the water')
-                switch(water_close)
+                switch(pins['water-close'])
             logging.info(f'time is {datetime.now().time().strftime("%H:%M")}, water is off, humidity is {h1}')
             water_status = 0
-        # sleep 1 minute to avoid too fast changes
-        time.sleep(time_switch)
+        time.sleep(time_switch) # sleep 1 minute to avoid too fast changes
+        now = datetime.now()
+        # insert here check if the date has changed,
+        # 1. read the operations.json file
+        # 2. check whether the date is different, if yes increase the counter, if not don't do anything
     
 

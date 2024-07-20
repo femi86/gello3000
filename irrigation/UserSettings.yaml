@@ -1,0 +1,22 @@
+time:
+  start: '2:00'
+  end: '2:30'
+skip-days: 2
+humidity-threshold: 0.01
+time-switch: 60
+rpi-pins:
+  water-open:
+    pinN: 16
+    mode: GPIO.OUT
+  water-close:
+    pinN: 12
+    mode: GPIO.OUT
+  humidity:
+    pinN: 13
+    mode: GPIO.IN
+  flow-meter:
+    pinN: 14
+    mode: GPIO.IN
+
+
+
