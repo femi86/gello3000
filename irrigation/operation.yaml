@@ -1,3 +1,7 @@
+# this file should be read and filled out by the script
+# it may make sense to have it be a sql database, so that all values from sensors can be saved
+# and a separate script/service that once a day reads from it and creates a json or yaml for the script to read
+
 date-start:
 date-now:
 days-passed:
