@@ -6,7 +6,16 @@ The script is daemonized on the raspberry pi via a systemd service, which basica
 
 ## Usage
 
-On the rpi, the script is in the folder ~/git/gello3000/irrigation and the service is /etc/systemd/system/water.service. 
+On the rpi, the python script should be in the folder ~/git/gello3000/irrigation and the service should be in /etc/systemd/system/.
+To initialize, clone the repo into a 'git' folder in the home with the following commands and move the service to the right folder and enable it:
+```bash
+cd
+mkdir git && cd git
+git clone https://github.com/femi86/gello3000.git
+sudo mv gello3000/irrigation/water.service /etc/systemd/system/
+sudo systemctl enable water.service
+sudo systemctl start water.service
+```
 There is nothing to do, except when changes are made, described in the following section
 
 ## making changes
