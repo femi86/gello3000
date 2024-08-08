@@ -28,6 +28,8 @@ When updating the script on the rpi, as there is some caching of the service, th
 ```bash
 git pull
 ```
+2. to change the systemd unit (i.e. if wanting to change the time or something), you can edit the file /etc/systemd/system/water.service
+
 3. if the systemd unit was changed, a the systemd needs to be reloaded
 ```bash
 sudo systemctl daemon-reload
@@ -36,3 +38,10 @@ sudo systemctl daemon-reload
 ```bash
 sudo systemctl restart water.service
 ```
+
+## Script working principle
+
+The python script itself is structured withe parse-args library, therefore it can be run via shell using the --help argument to get information on the various parameters.
+
+currently, as of august 2024, the only implemented rpi operator is the electrovalve, so the main change that can be done is to vary the opening time
+
